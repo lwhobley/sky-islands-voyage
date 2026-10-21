@@ -1,0 +1,84 @@
+{
+  "biomes": [
+    {
+      "id": "steampunk_harbor",
+      "displayName": "Steampunk Cloud Harbor",
+      "firstIsland": 1,
+      "lastIsland": 20,
+      "skyTint": "#E8B26A",
+      "structures": ["Gearwork Lighthouse", "Brass Airship Dock", "Boiler Market", "Chronometer Tower", "Cog Foundry"],
+      "namePrefixes": ["Brassport", "Cogsworth", "Rivetfall", "Steamhollow", "Gearhaven"],
+      "nameSuffixes": ["Wharf", "Landing", "Quay", "Moorings"]
+    },
+    {
+      "id": "neon_nebula",
+      "displayName": "Neon Nebula",
+      "firstIsland": 21,
+      "lastIsland": 50,
+      "skyTint": "#B04CFF",
+      "structures": ["Plasma Arcade", "Holo Spire", "Ion Reactor", "Synthwave Hall", "Quantum Bazaar"],
+      "namePrefixes": ["Lumina", "Vaporia", "Ionis", "Glitchmere", "Pulsar", "Chroma"],
+      "nameSuffixes": ["Drift", "Grid", "Halo", "Station", "Expanse"]
+    },
+    {
+      "id": "verdant_gardens",
+      "displayName": "Verdant Sky Gardens",
+      "firstIsland": 51,
+      "lastIsland": 75,
+      "skyTint": "#7FD67A",
+      "structures": ["Treant Hall", "Blossom Aqueduct", "Seed Vault", "Vine Bridge", "Pollen Mill"],
+      "namePrefixes": ["Mossreach", "Fernhold", "Bloomtide", "Willowmere", "Thornvale"],
+      "nameSuffixes": ["Terrace", "Grove", "Canopy", "Meadow", "Hollow"]
+    },
+    {
+      "id": "frostspire_glaciers",
+      "displayName": "Frostspire Glaciers",
+      "firstIsland": 76,
+      "lastIsland": 100,
+      "skyTint": "#9FE3FF",
+      "structures": ["Ice Citadel", "Aurora Observatory", "Crystal Kiln", "Mammoth Stables", "Rime Gate"],
+      "namePrefixes": ["Glacialis", "Rimehold", "Snowcrest", "Frostveil", "Icemarch"],
+      "nameSuffixes": ["Peak", "Shelf", "Bastion", "Fjord", "Crown"]
+    },
+    {
+      "id": "ember_caldera",
+      "displayName": "Ember Forge Caldera",
+      "firstIsland": 101,
+      "lastIsland": 125,
+      "skyTint": "#FF6A3D",
+      "structures": ["Magma Forge", "Obsidian Anvil", "Cinder Temple", "Lava Lock", "Ash Bellows"],
+      "namePrefixes": ["Emberfall", "Cindermaw", "Pyreholt", "Ashgrave", "Scorchwell"],
+      "nameSuffixes": ["Caldera", "Crucible", "Vent", "Basin", "Rim"]
+    },
+    {
+      "id": "coral_reefs",
+      "displayName": "Coral Cloud Reefs",
+      "firstIsland": 126,
+      "lastIsland": 150,
+      "skyTint": "#FF8FB1",
+      "structures": ["Pearl Palace", "Kelp Lift", "Tide Clock", "Shell Lighthouse", "Reef Arena"],
+      "namePrefixes": ["Pearlmist", "Tidecaller", "Shellhaven", "Brineglass", "Nautilon"],
+      "nameSuffixes": ["Reef", "Lagoon", "Atoll", "Shoal", "Cove"]
+    },
+    {
+      "id": "storm_citadel",
+      "displayName": "Obsidian Storm Citadel",
+      "firstIsland": 151,
+      "lastIsland": 179,
+      "skyTint": "#5B6B8C",
+      "structures": ["Thunder Cannon", "Lightning Rod Array", "Tempest Keep", "Gale Turbine", "Storm Altar"],
+      "namePrefixes": ["Thunderhold", "Voltspire", "Galeward", "Stormbreak", "Tempestra", "Squallmoor"],
+      "nameSuffixes": ["Citadel", "Rampart", "Bulwark", "Eyrie", "Keep"]
+    },
+    {
+      "id": "celestial_spire",
+      "displayName": "Celestial Sovereign Spire",
+      "firstIsland": 180,
+      "lastIsland": 200,
+      "skyTint": "#FFE680",
+      "structures": ["Starforge Throne", "Comet Orrery", "Sunlit Sanctum", "Moon Gate", "Aether Crown"],
+      "namePrefixes": ["Solaris", "Astralis", "Empyrea", "Zenith", "Halcyon", "Seraphel", "Lumen"],
+      "nameSuffixes": ["Sanctum", "Ascent", "Apex"]
+    }
+  ]
+}

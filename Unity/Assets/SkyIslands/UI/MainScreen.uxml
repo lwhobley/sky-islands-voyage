@@ -1,0 +1,68 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="Theme.uss" />
+    <ui:Template name="IslandPanel" src="IslandPanel.uxml" />
+    <ui:Template name="RaidPanel" src="RaidPanel.uxml" />
+    <ui:Template name="AlbumPanel" src="AlbumPanel.uxml" />
+    <ui:Template name="GuildPanel" src="GuildPanel.uxml" />
+
+    <ui:VisualElement name="screen" class="screen">
+        <ui:VisualElement name="hud" class="hud">
+            <ui:VisualElement class="pill">
+                <ui:Label class="pill__label" text="CRYSTALS" />
+                <ui:Label name="crystals" class="pill__value" text="0" />
+            </ui:VisualElement>
+            <ui:VisualElement class="pill">
+                <ui:Label class="pill__label" text="ROLLS" />
+                <ui:Label name="rolls" class="pill__value" text="0/50" />
+                <ui:Label name="roll-timer" class="pill__sub" text="" />
+            </ui:VisualElement>
+            <ui:VisualElement class="pill">
+                <ui:Label class="pill__label" text="SHIELDS" />
+                <ui:Label name="shields" class="pill__value" text="0/3" />
+            </ui:VisualElement>
+            <ui:Label name="sync-badge" class="sync-badge" text="" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="stage" class="stage">
+            <ui:Label name="island-title" class="island-title" text="" />
+            <ui:Label name="island-subtitle" class="island-subtitle" text="" />
+            <ui:VisualElement name="faces" class="faces">
+                <ui:Label name="face-0" class="face" text="?" />
+                <ui:Label name="face-1" class="face" text="?" />
+                <ui:Label name="face-2" class="face" text="?" />
+            </ui:VisualElement>
+            <ui:Label name="roll-result" class="roll-result" text="" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="controls" class="controls">
+            <ui:Button name="multiplier" class="btn btn--secondary" text="x1" />
+            <ui:Button name="roll" class="btn btn--roll" text="ROLL" />
+            <ui:Button name="raid-quick" class="btn btn--danger" text="RAID" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="nav" class="nav">
+            <ui:Button name="nav-island" class="nav__btn" text="Island" />
+            <ui:Button name="nav-raids" class="nav__btn" text="Raids">
+                <ui:Label name="raids-badge" class="nav__badge hidden" text="0" />
+            </ui:Button>
+            <ui:Button name="nav-album" class="nav__btn" text="Album">
+                <ui:Label name="album-badge" class="nav__badge hidden" text="0" />
+            </ui:Button>
+            <ui:Button name="nav-guild" class="nav__btn" text="Guild" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="panel-host" class="panel-host hidden">
+            <ui:Instance template="IslandPanel" name="island-panel" class="panel-instance hidden" />
+            <ui:Instance template="RaidPanel" name="raid-panel" class="panel-instance hidden" />
+            <ui:Instance template="AlbumPanel" name="album-panel" class="panel-instance hidden" />
+            <ui:Instance template="GuildPanel" name="guild-panel" class="panel-instance hidden" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="celebration" class="celebration hidden" picking-mode="Ignore">
+            <ui:Label name="celebration-text" text="" picking-mode="Ignore" />
+        </ui:VisualElement>
+        <ui:VisualElement name="toast" class="toast hidden" picking-mode="Ignore">
+            <ui:Label name="toast-text" text="" picking-mode="Ignore" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

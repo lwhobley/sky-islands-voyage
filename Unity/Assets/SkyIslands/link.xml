@@ -1,0 +1,6 @@
+<!-- Newtonsoft creates these DTOs via reflection; keep IL2CPP stripping from removing them. -->
+<linker>
+  <assembly fullname="SkyIslands">
+    <type fullname="SkyIslands.*" preserve="all" />
+  </assembly>
+</linker>

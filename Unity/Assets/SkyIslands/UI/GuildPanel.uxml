@@ -1,0 +1,40 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:VisualElement class="panel">
+        <ui:VisualElement class="panel__header">
+            <ui:Label name="title" class="panel__title" text="Guilds" />
+            <ui:Button name="close" class="btn btn--secondary btn--small" text="Close" />
+        </ui:VisualElement>
+        <ui:VisualElement class="composer">
+            <ui:TextField name="captain-name" label="Captain" class="text-field" max-length="20" />
+            <ui:Button name="rename" class="btn btn--small" text="Save" />
+        </ui:VisualElement>
+
+        <!-- Shown while the player has no guild -->
+        <ui:VisualElement name="browse" style="flex-grow: 1;">
+            <ui:VisualElement class="composer">
+                <ui:TextField name="search" label="Find" class="text-field" max-length="24" />
+                <ui:Button name="search-button" class="btn btn--small" text="Search" />
+            </ui:VisualElement>
+            <ui:ScrollView name="listings" class="panel__list" />
+            <ui:Label class="panel__section" text="Found your own" />
+            <ui:VisualElement class="composer">
+                <ui:TextField name="new-name" label="Name" class="text-field" max-length="24" />
+                <ui:TextField name="new-tag" label="Tag" class="text-field" max-length="5" style="flex-grow: 0; width: 260px;" />
+                <ui:Button name="create" class="btn btn--small" text="Create" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- Shown while the player is in a guild -->
+        <ui:VisualElement name="home" class="hidden" style="flex-grow: 1;">
+            <ui:Label name="description" class="panel__subtitle" text="" />
+            <ui:Label name="members-header" class="panel__section" text="Members" />
+            <ui:ScrollView name="members" style="max-height: 420px;" />
+            <ui:ScrollView name="chat" class="chat" />
+            <ui:VisualElement class="composer">
+                <ui:TextField name="message" class="text-field" max-length="500" />
+                <ui:Button name="send" class="btn btn--small" text="Send" />
+            </ui:VisualElement>
+            <ui:Button name="leave" class="btn btn--secondary btn--small" text="Leave guild" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

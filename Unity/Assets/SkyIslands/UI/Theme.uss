@@ -1,0 +1,439 @@
+/* Sky Islands: Voyage — brass & aether theme. Reference resolution 1080x1920 (portrait). */
+
+:root {
+    --sky-deep: #0F1626;
+    --sky: #1B2540;
+    --sky-raised: #26345A;
+    --brass: #D9A441;
+    --brass-dark: #8A6420;
+    --copper: #B8733A;
+    --parchment: #F3E9D2;
+    --parchment-dim: #B9B09A;
+    --aether: #3FD0C9;
+    --danger: #E0533D;
+    --success: #6BCB77;
+    --radius: 18px;
+}
+
+.screen {
+    flex-grow: 1;
+    background-color: var(--sky-deep);
+    color: var(--parchment);
+    font-size: 34px;
+}
+
+.hidden {
+    display: none;
+}
+
+/* ---------- HUD ---------- */
+
+.hud {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 24px 24px 12px 24px;
+}
+
+.pill {
+    flex-direction: row;
+    align-items: center;
+    background-color: var(--sky-raised);
+    border-radius: 40px;
+    border-width: 3px;
+    border-color: var(--brass-dark);
+    padding: 8px 22px;
+    margin: 6px;
+}
+
+.pill__label {
+    color: var(--parchment-dim);
+    font-size: 24px;
+    margin-right: 10px;
+}
+
+.pill__value {
+    -unity-font-style: bold;
+    font-size: 34px;
+}
+
+.pill__sub {
+    color: var(--aether);
+    font-size: 24px;
+    margin-left: 10px;
+}
+
+.sync-badge {
+    font-size: 22px;
+    color: var(--parchment-dim);
+    margin-left: 12px;
+}
+
+/* ---------- Stage ---------- */
+
+.stage {
+    flex-grow: 1;
+    align-items: center;
+    justify-content: center;
+}
+
+.island-title {
+    font-size: 44px;
+    -unity-font-style: bold;
+    color: var(--brass);
+}
+
+.island-subtitle {
+    font-size: 26px;
+    color: var(--parchment-dim);
+    margin-bottom: 48px;
+}
+
+.faces {
+    flex-direction: row;
+}
+
+.face {
+    width: 220px;
+    height: 220px;
+    margin: 12px;
+    border-radius: var(--radius);
+    border-width: 6px;
+    border-color: var(--brass);
+    background-color: var(--sky-raised);
+    -unity-text-align: middle-center;
+    -unity-font-style: bold;
+    font-size: 32px;
+    transition-property: scale, background-color;
+    transition-duration: 0.15s, 0.3s;
+}
+
+.face--landed { scale: 1.08 1.08; }
+.face--crystals { background-color: #2E6E8E; }
+.face--windcannon { background-color: #8E3B2E; }
+.face--cloudshield { background-color: #5E7FA8; }
+.face--stormspirit { background-color: #5B3E8E; }
+.face--aetherbattery { background-color: #2E8E6A; }
+
+.roll-result {
+    margin-top: 32px;
+    font-size: 36px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    white-space: normal;
+    max-width: 900px;
+}
+
+.roll-result--near-miss { color: var(--brass); }
+.roll-result--pity { color: var(--aether); }
+
+/* ---------- Buttons ---------- */
+
+.btn {
+    border-radius: var(--radius);
+    border-width: 4px;
+    border-color: var(--brass-dark);
+    background-color: var(--brass);
+    color: var(--sky-deep);
+    -unity-font-style: bold;
+    font-size: 32px;
+    padding: 14px 28px;
+    margin: 8px;
+    transition-property: scale, opacity;
+    transition-duration: 0.08s, 0.2s;
+}
+
+.btn:hover { background-color: #E8B65A; }
+.btn:active { scale: 0.95 0.95; }
+.btn:disabled { opacity: 0.4; }
+
+.btn--secondary {
+    background-color: var(--sky-raised);
+    color: var(--parchment);
+    border-color: var(--brass);
+}
+
+.btn--danger {
+    background-color: var(--danger);
+    color: var(--parchment);
+    border-color: #7A2A1F;
+}
+
+.btn--small {
+    font-size: 24px;
+    padding: 8px 16px;
+    margin: 4px;
+}
+
+.btn--roll {
+    width: 380px;
+    height: 160px;
+    font-size: 56px;
+    border-width: 6px;
+    border-radius: 80px;
+}
+
+.controls {
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    padding: 12px;
+}
+
+/* ---------- Navigation ---------- */
+
+.nav {
+    flex-direction: row;
+    background-color: var(--sky);
+    border-top-width: 3px;
+    border-color: var(--brass-dark);
+    padding: 12px 8px 36px 8px;
+}
+
+.nav__btn {
+    flex-grow: 1;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    color: var(--parchment);
+    font-size: 28px;
+    -unity-font-style: bold;
+}
+
+.nav__badge {
+    position: absolute;
+    right: 18px;
+    top: 4px;
+    min-width: 40px;
+    height: 40px;
+    border-radius: 20px;
+    background-color: var(--danger);
+    color: var(--parchment);
+    font-size: 22px;
+    -unity-text-align: middle-center;
+}
+
+/* ---------- Panels ---------- */
+
+.panel-host {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    background-color: rgba(8, 12, 22, 0.82);
+    justify-content: flex-end;
+}
+
+.panel-instance {
+    flex-grow: 1;
+    margin-top: 140px;
+}
+
+.panel {
+    flex-grow: 1;
+    background-color: var(--sky);
+    border-top-left-radius: 36px;
+    border-top-right-radius: 36px;
+    border-width: 4px;
+    border-color: var(--brass-dark);
+    padding: 28px;
+}
+
+.panel__header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.panel__title {
+    font-size: 42px;
+    -unity-font-style: bold;
+    color: var(--brass);
+}
+
+.panel__subtitle {
+    color: var(--parchment-dim);
+    font-size: 26px;
+    margin-bottom: 16px;
+    white-space: normal;
+}
+
+.panel__section {
+    font-size: 30px;
+    -unity-font-style: bold;
+    color: var(--brass);
+    margin: 20px 0 8px 0;
+}
+
+.panel__list {
+    flex-grow: 1;
+}
+
+.progress {
+    margin: 8px 0 20px 0;
+    height: 36px;
+}
+
+.progress .unity-progress-bar__progress { background-color: var(--brass); }
+.progress .unity-progress-bar__background { background-color: var(--sky-raised); border-radius: 12px; }
+
+.row {
+    flex-direction: row;
+    align-items: center;
+    background-color: var(--sky-raised);
+    border-radius: 14px;
+    padding: 14px 18px;
+    margin-bottom: 10px;
+}
+
+.row__main {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.row__title {
+    font-size: 30px;
+    -unity-font-style: bold;
+    white-space: normal;
+}
+
+.row__detail {
+    font-size: 24px;
+    color: var(--parchment-dim);
+    white-space: normal;
+}
+
+.row--damaged { border-left-width: 8px; border-color: var(--danger); }
+.row--complete { border-left-width: 8px; border-color: var(--success); }
+.row--alert { border-left-width: 8px; border-color: var(--danger); }
+
+.pips {
+    flex-direction: row;
+    margin-top: 6px;
+}
+
+.pip {
+    width: 34px;
+    height: 14px;
+    border-radius: 7px;
+    margin-right: 6px;
+    background-color: var(--sky-deep);
+}
+
+.pip--filled { background-color: var(--brass); }
+
+.result-card {
+    background-color: var(--sky-raised);
+    border-radius: 14px;
+    padding: 18px;
+    margin: 12px 0;
+    white-space: normal;
+}
+
+.result-card--deflected { border-width: 4px; border-color: var(--aether); }
+
+/* ---------- Album ---------- */
+
+.card-grid {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.card {
+    width: 190px;
+    height: 250px;
+    margin: 8px;
+    padding: 10px;
+    border-radius: 14px;
+    border-width: 4px;
+    border-color: var(--brass-dark);
+    background-color: var(--sky-deep);
+    justify-content: space-between;
+}
+
+.card--owned { background-color: var(--sky-raised); border-color: var(--brass); }
+.card__name { font-size: 22px; white-space: normal; -unity-font-style: bold; }
+.card__rarity { font-size: 22px; color: var(--brass); }
+
+/* ---------- Guild / chat ---------- */
+
+.text-field {
+    font-size: 28px;
+    margin: 6px 0;
+}
+
+.text-field > .unity-base-text-field__input {
+    background-color: var(--sky-deep);
+    color: var(--parchment);
+    border-radius: 10px;
+    padding: 10px;
+}
+
+.chat {
+    flex-grow: 1;
+    background-color: var(--sky-deep);
+    border-radius: 14px;
+    padding: 10px;
+    margin: 10px 0;
+}
+
+.chat__line {
+    font-size: 26px;
+    white-space: normal;
+    margin-bottom: 6px;
+}
+
+.chat__line--system { color: var(--parchment-dim); -unity-font-style: italic; }
+.chat__line--mine { color: var(--aether); }
+
+.composer {
+    flex-direction: row;
+    align-items: center;
+}
+
+.composer .text-field { flex-grow: 1; }
+
+/* ---------- Overlays ---------- */
+
+.toast {
+    position: absolute;
+    left: 60px;
+    right: 60px;
+    bottom: 260px;
+    padding: 20px;
+    border-radius: var(--radius);
+    background-color: rgba(15, 22, 38, 0.95);
+    border-width: 3px;
+    border-color: var(--brass);
+}
+
+.toast Label {
+    white-space: normal;
+    -unity-text-align: middle-center;
+    font-size: 30px;
+}
+
+.celebration {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(217, 164, 65, 0.25);
+}
+
+.celebration Label {
+    font-size: 64px;
+    -unity-font-style: bold;
+    color: var(--brass);
+    -unity-text-align: middle-center;
+    white-space: normal;
+    max-width: 900px;
+    scale: 1 1;
+    transition-property: scale;
+    transition-duration: 0.35s;
+}
+
+.celebration--pop Label { scale: 1.15 1.15; }

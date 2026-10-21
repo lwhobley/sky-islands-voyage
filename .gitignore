@@ -1,0 +1,26 @@
+# Secrets
+.env
+*.p8
+secrets/
+
+# Node / NestJS
+node_modules/
+dist/
+
+# .NET compile harness
+bin/
+obj/
+.artifacts/
+
+# Unity (if this folder is opened as a project)
+Library/
+Temp/
+Logs/
+UserSettings/
+*.csproj.user
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vs/
+.idea/

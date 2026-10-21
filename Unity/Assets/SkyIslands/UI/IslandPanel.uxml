@@ -1,0 +1,11 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:VisualElement class="panel">
+        <ui:VisualElement class="panel__header">
+            <ui:Label name="title" class="panel__title" text="Island" />
+            <ui:Button name="close" class="btn btn--secondary btn--small" text="Close" />
+        </ui:VisualElement>
+        <ui:Label name="subtitle" class="panel__subtitle" text="" />
+        <ui:ProgressBar name="progress" class="progress" low-value="0" high-value="1" />
+        <ui:ScrollView name="structures" class="panel__list" />
+    </ui:VisualElement>
+</ui:UXML>

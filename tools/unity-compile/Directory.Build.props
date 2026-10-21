@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>9.0</LangVersion>          <!-- Unity 6's C# version -->
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <!-- Unity's analyzers suppress "never assigned" for [SerializeField] fields; do the same. -->
+    <NoWarn>$(NoWarn);CS0649</NoWarn>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>

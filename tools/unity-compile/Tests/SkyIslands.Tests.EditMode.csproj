@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The Unity EditMode tests, run on plain .NET with NUnit 3. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>SkyIslands.Tests.EditMode</AssemblyName>  <!-- must match InternalsVisibleTo -->
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../../Unity/Assets/SkyIslands/Tests/EditMode/*.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="NUnit" Version="3.14.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <ProjectReference Include="../Runtime/SkyIslands.csproj" />
+    <ProjectReference Include="../Stubs/Stubs.csproj" />
+  </ItemGroup>
+</Project>

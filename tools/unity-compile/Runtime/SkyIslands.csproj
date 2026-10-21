@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The game's runtime scripts, compiled outside Unity against ../Stubs. -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>  <!-- Unity's API compatibility level -->
+    <AssemblyName>SkyIslands</AssemblyName>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <DefineConstants>$(DefineConstants);$(ExtraDefines)</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../../Unity/Assets/SkyIslands/Scripts/**/*.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <ProjectReference Include="../Stubs/Stubs.csproj" />
+  </ItemGroup>
+</Project>

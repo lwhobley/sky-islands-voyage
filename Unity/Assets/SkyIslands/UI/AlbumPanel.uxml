@@ -1,0 +1,15 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:VisualElement class="panel">
+        <ui:VisualElement class="panel__header">
+            <ui:Label class="panel__title" text="Card Album" />
+            <ui:Button name="close" class="btn btn--secondary btn--small" text="Close" />
+        </ui:VisualElement>
+        <ui:Label name="season" class="panel__subtitle" text="" />
+        <ui:VisualElement class="controls">
+            <ui:Label name="dust" class="pill__value" text="" />
+            <ui:Button name="open-pack" class="btn" text="Open Pack" />
+        </ui:VisualElement>
+        <ui:Label name="pack-result" class="result-card hidden" text="" />
+        <ui:ScrollView name="sets" class="panel__list" />
+    </ui:VisualElement>
+</ui:UXML>

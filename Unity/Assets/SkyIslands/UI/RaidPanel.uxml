@@ -1,0 +1,14 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:VisualElement class="panel">
+        <ui:VisualElement class="panel__header">
+            <ui:Label class="panel__title" text="Raids" />
+            <ui:Button name="close" class="btn btn--secondary btn--small" text="Close" />
+        </ui:VisualElement>
+        <ui:Label name="attacks" class="panel__subtitle" text="" />
+        <ui:Button name="raid" class="btn btn--danger" text="Fire Wind-Cannon" />
+        <ui:Label name="result" class="result-card hidden" text="" />
+        <ui:Label class="panel__section" text="Revenge" />
+        <ui:Label name="revenge-empty" class="panel__subtitle" text="Nobody has raided you. Yet." />
+        <ui:ScrollView name="revenge-list" class="panel__list" />
+    </ui:VisualElement>
+</ui:UXML>
