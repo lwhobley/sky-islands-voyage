@@ -22,10 +22,16 @@ cleanup() {
 trap cleanup EXIT
 
 "$PG_BIN/initdb" -D "$data" -U postgres -A trust -E UTF8 >/dev/null
-"$PG_BIN/pg_ctl" -D "$data" -o "-p $port" -l "$log" start -w >/dev/null
+# TCP on loopback only; no Unix socket (the distro default directory may not be writable).
+cat >> "$data/postgresql.conf" <<CONF
+port = $port
+listen_addresses = '127.0.0.1'
+unix_socket_directories = ''
+CONF
+"$PG_BIN/pg_ctl" -D "$data" -l "$log" start -w >/dev/null
 
-psql() { "$PG_BIN/psql" -X -q -p "$port" -U postgres -d game -v ON_ERROR_STOP=1 "$@"; }
-"$PG_BIN/psql" -X -q -p "$port" -U postgres -c "create database game"
+psql() { "$PG_BIN/psql" -X -q -h 127.0.0.1 -p "$port" -U postgres -d game -v ON_ERROR_STOP=1 "$@"; }
+"$PG_BIN/psql" -X -q -h 127.0.0.1 -p "$port" -U postgres -d postgres -c "create database game"
 psql -f "$here/supabase_stub.sql" -f "$supabase_dir/schema.sql" -f "$supabase_dir/seed.sql" >/dev/null
 
 if [[ -n "${GOLDEN_OUT:-}" ]]; then
