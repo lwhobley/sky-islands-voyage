@@ -83,6 +83,28 @@ create table public.admin_actions (
   created_at timestamptz not null default now()
 );
 
+-- Player-submitted reports, triaged through the admin API.
+create table public.player_reports (
+  id               bigint generated always as identity primary key,
+  reporter_id      uuid not null references public.profiles (id) on delete cascade,
+  reported_id      uuid not null references public.profiles (id) on delete cascade,
+  reason           text not null check (reason in ('offensive_name', 'harassment', 'spam', 'cheating', 'other')),
+  details          text not null default '' check (char_length(details) <= 500),
+  guild_message_id bigint,  -- not a FK: the evidence must survive the message being deleted
+  message_snapshot text,
+  reported_name    text not null,  -- display name at report time
+  status           text not null default 'open' check (status in ('open', 'actioned', 'dismissed')),
+  resolved_by      text,
+  resolved_at      timestamptz,
+  resolution_note  text,
+  created_at       timestamptz not null default now(),
+  check (reporter_id <> reported_id)
+);
+create unique index player_reports_one_open on public.player_reports
+  (reporter_id, reported_id, coalesce(guild_message_id, 0)) where status = 'open';
+create index player_reports_queue_idx on public.player_reports (status, created_at);
+create index player_reports_rate_idx on public.player_reports (reporter_id, created_at desc);
+
 -- Case-insensitive substrings rejected in display/guild names and masked in guild chat.
 create table public.banned_name_terms (
   term text primary key check (term = lower(term) and char_length(term) between 2 and 40)
@@ -946,11 +968,13 @@ create table public.guilds (
   name        text not null check (char_length(name) between 3 and 24),
   tag         text not null check (tag ~ '^[A-Z0-9]{2,5}$'),
   description text not null default '' check (char_length(description) <= 200),
-  is_open     boolean not null default true,  -- open: anyone may join; closed: invite-only (future)
+  is_open     boolean not null default true,  -- open: listed and joinable by anyone; closed: invite code only
+  invite_code text not null default upper(substr(encode(sha256(convert_to(gen_random_uuid()::text, 'UTF8')), 'hex'), 1, 8)),
   created_at  timestamptz not null default now()
 );
 create unique index guilds_name_key on public.guilds (lower(name));
 create unique index guilds_tag_key on public.guilds (tag);
+create unique index guilds_invite_code_key on public.guilds (invite_code);
 
 create table public.guild_members (
   user_id   uuid primary key references public.profiles (id) on delete cascade,  -- one guild per player
@@ -1014,6 +1038,7 @@ begin
     select jsonb_build_object(
       'id', g.id, 'name', g.name, 'tag', g.tag, 'description', g.description, 'is_open', g.is_open,
       'my_role', v_m.role,
+      'invite_code', case when v_m.role in ('leader', 'officer') then g.invite_code end,
       'members', (select jsonb_agg(jsonb_build_object(
                            'user_id', m.user_id, 'display_name', p.display_name, 'role', m.role,
                            'island_level', i.island_level, 'last_active_ms', game.epoch_ms(p.last_active_at))
@@ -1055,26 +1080,73 @@ begin
   return public.get_my_guild();
 end $$;
 
-create function public.join_guild(p_guild_id uuid) returns jsonb
-language plpgsql security definer set search_path = '' as $$
+-- Shared by both join paths. Locking the guild row serialises joins, so the 30-member cap
+-- holds under concurrency.
+create function game.add_guild_member(p_uid uuid, p_guild_id uuid, p_require_open boolean) returns void
+language plpgsql set search_path = '' as $$
 declare
-  v_uid uuid := game.require_uid();
   v_open boolean;
 begin
-  -- Locking the guild row serialises joins, so the 30-member cap holds under concurrency.
   select is_open into v_open from public.guilds where id = p_guild_id for update;
   if v_open is null then raise exception 'guild_not_found'; end if;
-  if not v_open then raise exception 'guild_closed'; end if;
+  if p_require_open and not v_open then raise exception 'guild_closed'; end if;
   if (select count(*) from public.guild_members where guild_id = p_guild_id) >= 30 then
     raise exception 'guild_full';
   end if;
   begin
-    insert into public.guild_members (user_id, guild_id, role) values (v_uid, p_guild_id, 'member');
+    insert into public.guild_members (user_id, guild_id, role) values (p_uid, p_guild_id, 'member');
   exception when unique_violation then
     raise exception 'already_in_guild';
   end;
   perform game.guild_system_message(p_guild_id,
-    (select display_name from public.profiles where id = v_uid) || ' joined the guild.');
+    (select display_name from public.profiles where id = p_uid) || ' joined the guild.');
+end $$;
+
+create function public.join_guild(p_guild_id uuid) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+begin
+  perform game.add_guild_member(game.require_uid(), p_guild_id, true);
+  return public.get_my_guild();
+end $$;
+
+-- Joins any guild, open or closed, with its current invite code (case-insensitive).
+create function public.join_guild_by_code(p_code text) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_uid uuid := game.require_uid();
+  v_guild uuid;
+begin
+  select id into v_guild from public.guilds where invite_code = upper(btrim(coalesce(p_code, '')));
+  if v_guild is null then raise exception 'invalid_invite_code'; end if;
+  perform game.add_guild_member(v_uid, v_guild, false);
+  return public.get_my_guild();
+end $$;
+
+-- Leader/officer: open or close the guild and edit its description.
+create function public.update_guild_settings(p_is_open boolean, p_description text) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_me public.guild_members%rowtype := game.my_membership(game.require_uid());
+  v_description text := btrim(coalesce(p_description, ''));
+begin
+  if v_me.role not in ('leader', 'officer') then raise exception 'insufficient_guild_role'; end if;
+  if char_length(v_description) > 200 then raise exception 'invalid_guild_details' using errcode = '22023'; end if;
+  if game.contains_banned_term(v_description) then raise exception 'name_not_allowed'; end if;
+  update public.guilds set is_open = coalesce(p_is_open, is_open), description = v_description
+   where id = v_me.guild_id;
+  return public.get_my_guild();
+end $$;
+
+-- Leader/officer: invalidate the current invite code (e.g. after it leaked).
+create function public.rotate_guild_invite_code() returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_me public.guild_members%rowtype := game.my_membership(game.require_uid());
+begin
+  if v_me.role not in ('leader', 'officer') then raise exception 'insufficient_guild_role'; end if;
+  update public.guilds
+     set invite_code = upper(substr(encode(sha256(convert_to(gen_random_uuid()::text, 'UTF8')), 'hex'), 1, 8))
+   where id = v_me.guild_id;
   return public.get_my_guild();
 end $$;
 
@@ -1270,6 +1342,97 @@ language sql stable security definer set search_path = '' as $$
 $$;
 
 -- -----------------------------------------------------------------------------
+-- Player reports
+-- -----------------------------------------------------------------------------
+
+-- Report another player, optionally pinning a guild chat message as evidence. Repeat reports
+-- of the same thing are accepted silently; at most 10 reports per player per day.
+create function public.report_player(p_user_id uuid, p_reason text, p_details text default '',
+                                     p_message_id bigint default null) returns void
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_uid uuid := game.require_uid();
+  v_name text;
+  v_snapshot text;
+begin
+  if p_user_id = v_uid then raise exception 'cannot_report_self'; end if;
+  select display_name into v_name from public.profiles where id = p_user_id;
+  if v_name is null then raise exception 'player_not_found'; end if;
+  if (select count(*) from public.player_reports
+       where reporter_id = v_uid and created_at > now() - interval '1 day') >= 10 then
+    raise exception 'rate_limited';
+  end if;
+  if p_message_id is not null then
+    -- Evidence must be the reported player's message in the reporter's own guild.
+    select m.body into v_snapshot
+      from public.guild_messages m
+      join public.guild_members me on me.guild_id = m.guild_id and me.user_id = v_uid
+     where m.id = p_message_id and m.user_id = p_user_id;
+    if v_snapshot is null then raise exception 'message_not_found'; end if;
+  end if;
+  begin
+    insert into public.player_reports (reporter_id, reported_id, reason, details, guild_message_id,
+                                       message_snapshot, reported_name)
+    values (v_uid, p_user_id, p_reason, btrim(coalesce(p_details, '')), p_message_id, v_snapshot, v_name)
+    on conflict do nothing;
+  exception when check_violation then
+    raise exception 'invalid_report' using errcode = '22023';
+  end;
+end $$;
+
+-- Service role only. The review queue, with how many open reports each player has.
+create function public.admin_list_reports(p_status text default 'open', p_limit int default 50) returns jsonb
+language sql stable security definer set search_path = '' as $$
+  select coalesce(jsonb_agg(to_jsonb(x) order by x.created_ms), '[]'::jsonb)
+    from (select r.id, r.reason, r.details, r.status, r.reported_id, r.reported_name,
+                 p.display_name as reported_current_name, r.reporter_id, rp.display_name as reporter_name,
+                 r.guild_message_id, r.message_snapshot, r.resolved_by, r.resolution_note,
+                 game.epoch_ms(r.created_at) as created_ms,
+                 (select count(*) from public.player_reports o
+                   where o.reported_id = r.reported_id and o.status = 'open') as open_reports_against
+            from public.player_reports r
+            join public.profiles p on p.id = r.reported_id
+            join public.profiles rp on rp.id = r.reporter_id
+           where r.status = p_status
+           order by r.created_at
+           limit least(greatest(p_limit, 1), 200)) x
+$$;
+
+-- Service role only. Closes a report and optionally acts on it: reset the reported player's
+-- name to a neutral one and/or delete the reported chat message. Audited in admin_actions.
+create function public.admin_resolve_report(p_actor text, p_report_id bigint, p_status text, p_note text,
+                                            p_reset_name boolean default false,
+                                            p_delete_message boolean default false) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_r public.player_reports%rowtype;
+begin
+  if coalesce(btrim(p_actor), '') = '' then raise exception 'actor_and_reason_required' using errcode = '22023'; end if;
+  if p_status not in ('actioned', 'dismissed') then raise exception 'invalid_status' using errcode = '22023'; end if;
+  select * into v_r from public.player_reports where id = p_report_id for update;
+  if not found then raise exception 'report_not_found'; end if;
+  if v_r.status <> 'open' then raise exception 'report_already_resolved'; end if;
+
+  if p_reset_name then
+    update public.profiles set display_name = 'Voyager ' || lpad((floor(random() * 10000))::int::text, 4, '0')
+     where id = v_r.reported_id;
+  end if;
+  if p_delete_message and v_r.guild_message_id is not null then
+    delete from public.guild_messages where id = v_r.guild_message_id;
+  end if;
+
+  update public.player_reports
+     set status = p_status, resolved_by = p_actor, resolved_at = now(), resolution_note = btrim(coalesce(p_note, ''))
+   where id = p_report_id;
+  insert into public.admin_actions (actor, action, user_id, details)
+  values (p_actor, 'resolve_report', v_r.reported_id,
+          jsonb_build_object('report_id', p_report_id, 'status', p_status, 'note', p_note,
+                             'reset_name', p_reset_name,
+                             'deleted_message', p_delete_message and v_r.guild_message_id is not null));
+  return (select to_jsonb(r) from public.player_reports r where r.id = p_report_id);
+end $$;
+
+-- -----------------------------------------------------------------------------
 -- Row-level security & privileges
 -- -----------------------------------------------------------------------------
 
@@ -1292,6 +1455,7 @@ alter table public.guild_messages       enable row level security;
 alter table public.roll_audit           enable row level security;  -- no policies: service role only
 alter table public.admin_actions        enable row level security;  -- no policies: service role only
 alter table public.banned_name_terms    enable row level security;  -- no policies: service role only
+alter table public.player_reports       enable row level security;  -- no policies: service role only
 
 -- Supabase grants ALL to anon/authenticated by default; take it back to read-only.
 revoke all on public.profiles, public.island_states, public.inventory_rolls, public.raid_history,
@@ -1299,14 +1463,16 @@ revoke all on public.profiles, public.island_states, public.inventory_rolls, pub
               public.card_albums, public.card_set_completions,
               public.store_products, public.purchases, public.push_tokens, public.notification_outbox,
               public.guilds, public.guild_members, public.guild_messages,
-              public.roll_audit, public.admin_actions, public.banned_name_terms
+              public.roll_audit, public.admin_actions, public.banned_name_terms, public.player_reports
   from anon, authenticated;
 grant select on public.profiles, public.island_states, public.inventory_rolls, public.raid_history,
                 public.card_seasons, public.card_sets, public.card_definitions,
                 public.card_albums, public.card_set_completions,
                 public.store_products, public.purchases, public.push_tokens,
-                public.guilds, public.guild_members, public.guild_messages
+                public.guild_members, public.guild_messages
   to authenticated;
+-- invite_code is deliberately excluded: only leaders/officers see it, via get_my_guild().
+grant select (id, name, tag, description, is_open, created_at) on public.guilds to authenticated;
 
 create policy "profiles: read own" on public.profiles
   for select to authenticated using (id = (select auth.uid()));
@@ -1353,7 +1519,10 @@ revoke execute on function
   public.list_guilds(text), public.get_my_guild(), public.create_guild(text, text, text),
   public.join_guild(uuid), public.leave_guild(), public.kick_guild_member(uuid),
   public.set_guild_role(uuid, text), public.send_guild_message(text), public.set_display_name(text),
-  public.admin_grant(text, uuid, int, int, numeric, text), public.admin_multiplier_anomalies(int, float8)
+  public.admin_grant(text, uuid, int, int, numeric, text), public.admin_multiplier_anomalies(int, float8),
+  public.join_guild_by_code(text), public.update_guild_settings(boolean, text), public.rotate_guild_invite_code(),
+  public.report_player(uuid, text, text, bigint), public.admin_list_reports(text, int),
+  public.admin_resolve_report(text, bigint, text, text, boolean, boolean)
   from public, anon, authenticated;
 grant execute on function
   public.get_player_state(), public.sync_rolls(jsonb), public.upgrade_structure(int),
@@ -1362,13 +1531,16 @@ grant execute on function
   public.register_push_token(text, text), public.unregister_push_token(text),
   public.list_guilds(text), public.get_my_guild(), public.create_guild(text, text, text),
   public.join_guild(uuid), public.leave_guild(), public.kick_guild_member(uuid),
-  public.set_guild_role(uuid, text), public.send_guild_message(text), public.set_display_name(text)
+  public.set_guild_role(uuid, text), public.send_guild_message(text), public.set_display_name(text),
+  public.join_guild_by_code(text), public.update_guild_settings(boolean, text), public.rotate_guild_invite_code(),
+  public.report_player(uuid, text, text, bigint)
   to authenticated;
 -- Called by the NestJS service with the service-role key.
 grant execute on function
   public.grant_purchase(uuid, text, text, text), public.claim_push_batch(int),
   public.complete_push_batch(bigint[], text[]),
-  public.admin_grant(text, uuid, int, int, numeric, text), public.admin_multiplier_anomalies(int, float8)
+  public.admin_grant(text, uuid, int, int, numeric, text), public.admin_multiplier_anomalies(int, float8),
+  public.admin_list_reports(text, int), public.admin_resolve_report(text, bigint, text, text, boolean, boolean)
   to service_role;
 
 -- -----------------------------------------------------------------------------

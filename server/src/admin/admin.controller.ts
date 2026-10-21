@@ -1,4 +1,17 @@
-import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, NotFoundException, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  ConflictException,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  NotFoundException,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { RpcError, SupabaseService } from '../supabase.service';
 import { AdminActor, AdminGuard } from './admin.guard';
 
@@ -51,6 +64,51 @@ export class AdminController {
       if (e instanceof RpcError && (e.message === 'grant_out_of_bounds' || e.message === 'actor_and_reason_required')) {
         throw new BadRequestException(e.message);
       }
+      throw e;
+    }
+  }
+}
+
+@Controller('admin/reports')
+@UseGuards(AdminGuard)
+export class AdminReportsController {
+  constructor(private readonly supabase: SupabaseService) {}
+
+  /** GET /admin/reports?status=open&limit=50 — oldest first, with open-report counts per player. */
+  @Get()
+  list(@Query('status') status = 'open', @Query('limit') limit?: string) {
+    if (!['open', 'actioned', 'dismissed'].includes(status)) {
+      throw new BadRequestException('status must be open, actioned or dismissed');
+    }
+    return this.supabase.rpc('admin_list_reports', { p_status: status, p_limit: intParam(limit, 50, 1, 200, 'limit') });
+  }
+
+  /**
+   * POST /admin/reports/:id/resolve  { status: "actioned"|"dismissed", note, resetName?, deleteMessage? }
+   * resetName renames the reported player to "Voyager NNNN"; deleteMessage removes the pinned chat message.
+   */
+  @Post(':id/resolve')
+  @HttpCode(HttpStatus.OK)
+  async resolve(@AdminActor() actor: string, @Param('id') id: string, @Body() body: unknown) {
+    const b = (body ?? {}) as Record<string, unknown>;
+    if (!/^\d{1,18}$/.test(id)) throw new BadRequestException('id must be a report id');
+    if (b.status !== 'actioned' && b.status !== 'dismissed') throw new BadRequestException('status must be actioned or dismissed');
+    if (typeof b.note !== 'string' || b.note.trim().length === 0) throw new BadRequestException('note is required');
+    for (const flag of ['resetName', 'deleteMessage']) {
+      if (b[flag] !== undefined && typeof b[flag] !== 'boolean') throw new BadRequestException(`${flag} must be a boolean`);
+    }
+    try {
+      return await this.supabase.rpc('admin_resolve_report', {
+        p_actor: actor,
+        p_report_id: Number(id),
+        p_status: b.status,
+        p_note: b.note.trim().slice(0, 500),
+        p_reset_name: b.resetName === true,
+        p_delete_message: b.deleteMessage === true,
+      });
+    } catch (e) {
+      if (e instanceof RpcError && e.message === 'report_not_found') throw new NotFoundException(e.message);
+      if (e instanceof RpcError && e.message === 'report_already_resolved') throw new ConflictException(e.message);
       throw e;
     }
   }

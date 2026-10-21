@@ -73,6 +73,10 @@ namespace SkyIslands.UI
             ["invalid_message"] = "Messages need 1–500 characters.",
             ["invalid_display_name"] = "Names need 3–20 characters, without symbols.",
             ["name_not_allowed"] = "That name isn't allowed. Try another.",
+            ["invalid_invite_code"] = "That invite code doesn't match any guild.",
+            ["cannot_report_self"] = "You can't report yourself.",
+            ["message_not_found"] = "That message is no longer available.",
+            ["guild_not_found"] = "That guild no longer exists.",
         };
 
         /// <summary>1234 → "1.23K", 1.43e20 → "143Qi".</summary>

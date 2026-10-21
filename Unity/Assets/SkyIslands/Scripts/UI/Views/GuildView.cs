@@ -6,9 +6,12 @@ namespace SkyIslands.UI
 {
     public sealed class GuildView : PanelView<GuildViewModel>
     {
-        readonly Label _title, _description, _membersHeader;
-        readonly VisualElement _browse, _home;
-        readonly TextField _captainName, _search, _newName, _newTag, _message;
+        readonly Label _title, _description, _membersHeader, _inviteCodeLabel;
+        readonly VisualElement _browse, _home, _manage;
+        readonly TextField _captainName, _search, _newName, _newTag, _message, _inviteCode;
+        readonly Button _toggleOpen, _reportMessage;
+        GuildMessage _selected;
+        Label _selectedLine;
         readonly ScrollView _listings, _members, _chat;
 
         public GuildView(VisualElement root, GuildViewModel vm) : base(root, vm)
@@ -16,6 +19,11 @@ namespace SkyIslands.UI
             _title = root.Q<Label>("title");
             _description = root.Q<Label>("description");
             _membersHeader = root.Q<Label>("members-header");
+            _inviteCodeLabel = root.Q<Label>("invite-code-label");
+            _manage = root.Q("manage");
+            _inviteCode = root.Q<TextField>("invite-code");
+            _toggleOpen = root.Q<Button>("toggle-open");
+            _reportMessage = root.Q<Button>("report-message");
             _browse = root.Q("browse");
             _home = root.Q("home");
             _captainName = root.Q<TextField>("captain-name");
@@ -28,6 +36,10 @@ namespace SkyIslands.UI
             _chat = root.Q<ScrollView>("chat");
 
             root.Q<Button>("rename").clicked += () => vm.Rename(_captainName.value);
+            root.Q<Button>("join-code").clicked += () => vm.JoinByCode(_inviteCode.value);
+            root.Q<Button>("rotate-code").clicked += vm.RotateCode;
+            _toggleOpen.clicked += vm.ToggleOpen;
+            _reportMessage.clicked += ReportSelected;
             root.Q<Button>("search-button").clicked += () => vm.Search(_search.value);
             root.Q<Button>("create").clicked += () => vm.Create(_newName.value, _newTag.value);
             root.Q<Button>("leave").clicked += vm.Leave;
@@ -80,20 +92,24 @@ namespace SkyIslands.UI
             var guild = Vm.Guild;
             _description.text = guild.Description;
             _membersHeader.text = Vm.MembersHeader;
+            _manage.EnableInClassList("hidden", !Vm.CanManage);
+            _inviteCodeLabel.text = Vm.InviteCodeText;
+            _toggleOpen.text = Vm.OpenToggleText;
 
             _members.Clear();
             foreach (var m in guild.Members)
             {
                 var row = Row(m.DisplayName, $"{m.Role} · island {m.IslandLevel}");
+                var captured = m;
                 if (Vm.CanKick(m))
-                {
-                    var captured = m;
                     row.Add(MakeButton("Kick", () => Vm.Kick(captured), !Vm.IsBusy, "btn--secondary"));
-                }
+                if (Vm.CanReport(m))
+                    row.Add(MakeButton("Report", () => Vm.ReportName(captured), !Vm.IsBusy, "btn--secondary"));
                 _members.Add(row);
             }
 
             _chat.Clear();
+            Select(null, null);
             foreach (var message in guild.Messages) _chat.Add(ChatLine(message));
             ScrollChatToEnd();
         }
@@ -117,7 +133,26 @@ namespace SkyIslands.UI
             var line = MakeLabel(m.IsSystem ? m.Body : $"{m.AuthorName}: {m.Body}", "chat__line");
             line.EnableInClassList("chat__line--system", m.IsSystem);
             line.EnableInClassList("chat__line--mine", Vm.IsMine(m));
+            if (Vm.CanReport(m))
+                line.RegisterCallback<PointerDownEvent>(_ => Select(_selected == m ? null : m, line));  // tap to select
             return line;
+        }
+
+        void Select(GuildMessage message, Label line)
+        {
+            _selectedLine?.RemoveFromClassList("chat__line--selected");
+            _selected = message;
+            _selectedLine = message == null ? null : line;
+            _selectedLine?.AddToClassList("chat__line--selected");
+            _reportMessage.EnableInClassList("hidden", message == null);
+            if (message != null) _reportMessage.text = $"Report {message.AuthorName}";
+        }
+
+        void ReportSelected()
+        {
+            if (_selected == null || Vm.IsBusy) return;
+            Vm.ReportMessage(_selected);
+            Select(null, null);
         }
 
         void ScrollChatToEnd() =>
