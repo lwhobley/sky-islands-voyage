@@ -27,6 +27,8 @@ Unity/Assets/SkyIslands/
   UI/                    MainScreen.uxml + panel templates, Theme.uss
   Resources/biomes.json  8 biomes covering islands 1–200
   link.xml               keeps JSON DTOs through IL2CPP stripping
+docs/ECONOMY.md          pacing analysis (campaign length, income mix, tuning levers)
+tools/economy-sim/       Monte Carlo pacing simulator (Python, stdlib only)
 tools/unity-compile/     compiles the Unity scripts on plain .NET (Unity API stand-ins) + runs the tests
 ```
 
@@ -241,7 +243,7 @@ header, and the actor is written to `admin_actions` with every change. It has tw
   with and without Addressables.
   - Unity's own assemblies can't be redistributed, so the build uses stand-ins written to
     match Unity 6's signatures for the APIs the game uses (`tools/unity-compile/Stubs`).
-  - All 26 EditMode tests pass on NUnit 3. That includes the golden replay: offline rolls
+  - All 28 EditMode tests pass on NUnit 3. That includes the golden replay: offline rolls
     reproduce the server's `sync_rolls` state exactly.
 - **Not yet checked in a real Unity editor:** UXML/USS import, asmdef resolution, IL2CPP,
   and Play-mode behaviour such as chat auto-scroll. Three code reviews covered these; the

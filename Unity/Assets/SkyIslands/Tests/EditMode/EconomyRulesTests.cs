@@ -70,6 +70,33 @@ namespace SkyIslands.Tests
         }
 
         [Test]
+        public void EveryIslandCostsTheSameNumberOfRolls()
+        {
+            // Island cost and roll reward grow on the same 1.2^(n-1) curve, so pacing stays flat
+            // from island 1 to 200. (Expressed in thousandths of a roll reward: 100.000 +/- 0.1.)
+            for (int level = 1; level <= EconomyRules.IslandCount; level++)
+            {
+                BigInteger ratio = EconomyRules.IslandCost(level) * 1000 / EconomyRules.RollReward(level);
+                Assert.That((long)ratio, Is.InRange(99_900L, 100_100L), $"island {level}");
+            }
+        }
+
+        [Test]
+        public void TierPricesAddUpToTheIslandCost()
+        {
+            for (int level = 1; level <= EconomyRules.IslandCount; level++)
+            {
+                BigInteger sum = BigInteger.Zero;
+                for (int slot = 0; slot < EconomyRules.StructuresPerIsland; slot++)
+                    for (int tier = 1; tier <= EconomyRules.MaxTier; tier++)
+                        sum += EconomyRules.UpgradeCost(level, slot, tier);
+                BigInteger cost = EconomyRules.IslandCost(level);
+                Assert.LessOrEqual(sum, cost, $"island {level}: tiers never cost more than Cost(n)");
+                Assert.LessOrEqual(cost - sum, new BigInteger(20), $"island {level}: at most 1 crystal lost to flooring per tier");
+            }
+        }
+
+        [Test]
         public void RejectsLevelsOutsideTheCampaign()
         {
             Assert.Throws<ArgumentOutOfRangeException>(() => EconomyRules.IslandCost(0));
