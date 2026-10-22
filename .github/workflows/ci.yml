@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  schema:
+    name: Supabase schema suites
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run SQL suites against a throwaway PostgreSQL
+        run: |
+          export PG_BIN="$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -1)"
+          "$PG_BIN/postgres" --version
+          bash supabase/tests/run.sh
+      - name: Golden vectors are up to date
+        run: |
+          export PG_BIN="$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -1)"
+          GOLDEN_OUT="$RUNNER_TEMP/GoldenVectors.cs" bash supabase/tests/run.sh > /dev/null
+          # The replay fixture is anchored to "now", so compare everything except its timestamps.
+          strip() { grep -vE 'ReplayT0Ms|ReplayRegenAnchorMs|ReplayStateAtMs|^ *\([0-9]+, [0-9]+, [0-9]{13}\),$' "$1"; }
+          diff <(strip Unity/Assets/SkyIslands/Tests/EditMode/GoldenVectors.cs) <(strip "$RUNNER_TEMP/GoldenVectors.cs") \
+            || { echo "::error::GoldenVectors.cs is stale; regenerate it (see README → Tests)"; exit 1; }
+
+  server:
+    name: NestJS service
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm test -- --ci
+      - run: npm run build
+
+  unity:
+    name: Unity scripts (compile + EditMode tests)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: bash tools/unity-compile/run.sh

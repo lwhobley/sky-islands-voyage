@@ -75,6 +75,17 @@ the longest-serving officer takes over (or member, if there are no officers); th
 out disbands the guild. Chat messages are rows in `guild_messages`, and members receive
 them over Realtime. RLS gates the feed, so a removed member stops receiving immediately.
 Chat is rate-limited to 5 messages per 10 seconds.
+Closed guilds aren't listed; players join them with an 8-character invite code.
+- Leaders and officers can see the code, generate a new one, and open or close the guild.
+- The code isn't readable through the `guilds` table, which has column-level grants.
+
+**Reports.** Players can report another player's name from the roster, or tap any chat
+message from another player to report it. A message report attaches that message as
+evidence (only allowed for a message in the reporter's own guild). The report keeps a copy
+of the message, so the evidence survives if the message is later deleted.
+- Each player can file at most 10 reports a day, and duplicate open reports are ignored.
+- Moderators triage the queue through the admin API. Resolving a report can also reset the
+  player's name to "Voyager NNNN" and delete the reported message; both actions are audited.
 
 **Moderation.** Display names (3–20 characters, any script, no markup or symbols) change only
 through `set_display_name`. Names and guild names are checked against `banned_name_terms`,
@@ -98,6 +109,9 @@ header, and the actor is written to `admin_actions` with every change. It has tw
 - `GET /admin/anomalies` returns the anti-cheat report.
 - `POST /admin/grants` gives compensation. It's bounded to 100,000 rolls and 1,000 packs
   per grant, and a reason is required.
+- `GET /admin/reports?status=open` lists the report queue, oldest first.
+- `POST /admin/reports/:id/resolve` closes a report, with optional `resetName` and
+  `deleteMessage`.
 
 ## Design decisions the spec left open
 
@@ -169,8 +183,13 @@ header, and the actor is written to `admin_actions` with every change. It has tw
 
 ## Verification status
 
+- **CI:** GitHub Actions (`.github/workflows/ci.yml`) runs on every push and pull request:
+  - the SQL suites;
+  - a check that `GoldenVectors.cs` matches the current SQL;
+  - the server's typecheck, tests and build;
+  - the Unity compile and EditMode tests.
 - **SQL:** `schema.sql` was run against PostgreSQL 18 with a stub of Supabase's `auth`
-  schema and roles. Four suites pass (`supabase/tests/`). They cover:
+  schema and roles. Five suites pass (`supabase/tests/`). They cover:
   - RLS isolation, column grants, anon lockout, and service-role-only RPCs;
   - idempotent and rejected roll syncs, regen and clock clamping;
   - island completion, shielded and unshielded raids, NPC fallback and the fair-match
@@ -182,7 +201,9 @@ header, and the actor is written to `admin_actions` with every change. It has tw
     limit;
   - name and chat moderation;
   - admin grants and their audit trail;
-  - an end-to-end cheater simulation through `sync_rolls`.
+  - an end-to-end cheater simulation through `sync_rolls`;
+  - invite codes (including privacy and the member cap), reports, evidence rules, and admin
+    resolution.
 - **Client/server parity:** an independent reference implementation matched all 20,000
   roll outcomes and all 4,000 level × slot × tier prices against the SQL exactly.
 - **Golden vectors:** `GoldenVectors.cs` is generated from the live SQL functions. It holds
@@ -190,7 +211,7 @@ header, and the actor is written to `admin_actions` with every change. It has tw
   replay that crosses the regen cap and runs out of budget. A Python port of the C# roll
   loop reproduces that replay exactly, so the Unity tests should pass as soon as the code
   compiles.
-- **Server:** it type-checks and builds. 27 Jest tests pass, including end-to-end HTTP
+- **Server:** it type-checks and builds. 30 Jest tests pass, including end-to-end HTTP
   tests through the real `AppModule` (player and admin guards, validation, error mapping). The calls
   to Apple, Google, FCM and Supabase are mocked; they still need a sandbox run with real
   credentials.
@@ -209,7 +230,6 @@ header, and the actor is written to `admin_actions` with every change. It has tw
 
 - Art: structure prefabs, VFX and audio. Also the Unity IAP / Firebase SDK glue described
   above.
-- Guild invites for closed guilds, and a way for players to report each other.
 - An admin UI: the `/admin` API is curl-able today.
 - **Remaining anti-cheat gap:** the detector can't flag a cheater who peeks but only rarely
   acts on it. Each such roll gains little, but if it matters, move high multipliers to

@@ -385,6 +385,7 @@
 
 .chat__line--system { color: var(--parchment-dim); -unity-font-style: italic; }
 .chat__line--mine { color: var(--aether); }
+.chat__line--selected { background-color: var(--sky-raised); border-radius: 8px; }
 
 .composer {
     flex-direction: row;

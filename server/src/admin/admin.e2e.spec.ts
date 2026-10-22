@@ -76,6 +76,49 @@ describe('Admin API', () => {
   });
 });
 
+describe('Admin report queue', () => {
+  let app: INestApplication;
+  let rpc: jest.Mock;
+  let base: string;
+
+  beforeAll(async () => ({ app, rpc, base } = await boot(KEY)));
+  afterAll(() => app.close());
+  beforeEach(() => rpc.mockReset());
+
+  const headers = { 'content-type': 'application/json', 'x-admin-key': KEY, 'x-admin-actor': 'mod@studio' };
+  const resolve = (id: string, body: unknown) =>
+    fetch(`${base}/admin/reports/${id}/resolve`, { method: 'POST', headers, body: JSON.stringify(body) });
+
+  it('lists reports by status', async () => {
+    rpc.mockResolvedValue([]);
+    expect((await fetch(`${base}/admin/reports`, { headers })).status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith('admin_list_reports', { p_status: 'open', p_limit: 50 });
+    expect((await fetch(`${base}/admin/reports?status=deleted`, { headers })).status).toBe(400);
+  });
+
+  it('resolves with optional actions on behalf of the moderator', async () => {
+    rpc.mockResolvedValue({ id: 7, status: 'actioned' });
+    const res = await resolve('7', { status: 'actioned', note: 'Chat abuse', resetName: true, deleteMessage: true });
+    expect(res.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith('admin_resolve_report', {
+      p_actor: 'mod@studio', p_report_id: 7, p_status: 'actioned', p_note: 'Chat abuse',
+      p_reset_name: true, p_delete_message: true,
+    });
+  });
+
+  it('validates input and maps conflicts', async () => {
+    expect((await resolve('abc', { status: 'actioned', note: 'n' })).status).toBe(400);
+    expect((await resolve('7', { status: 'open', note: 'n' })).status).toBe(400);
+    expect((await resolve('7', { status: 'dismissed' })).status).toBe(400);
+    expect((await resolve('7', { status: 'dismissed', note: 'n', resetName: 'yes' })).status).toBe(400);
+    expect(rpc).not.toHaveBeenCalled();
+    rpc.mockRejectedValueOnce(new RpcError('report_not_found', 'P0001'));
+    expect((await resolve('8', { status: 'dismissed', note: 'n' })).status).toBe(404);
+    rpc.mockRejectedValueOnce(new RpcError('report_already_resolved', 'P0001'));
+    expect((await resolve('8', { status: 'dismissed', note: 'n' })).status).toBe(409);
+  });
+});
+
 describe('Admin API without ADMIN_API_KEY', () => {
   it('is disabled', async () => {
     const { app, base } = await boot();

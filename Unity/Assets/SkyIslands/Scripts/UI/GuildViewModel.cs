@@ -31,6 +31,8 @@ namespace SkyIslands.UI
         public bool InGuild => Guild != null;
         public IReadOnlyList<GuildListing> Listings { get; private set; } = Array.Empty<GuildListing>();
         public bool CanManage => Guild != null && (Guild.MyRole == "leader" || Guild.MyRole == "officer");
+        public string InviteCodeText => CanManage ? $"Invite code: {Guild.InviteCode}" : "";
+        public string OpenToggleText => Guild?.IsOpen == true ? "Make invite-only" : "Open to everyone";
         public string Title => InGuild ? $"{Guild.Name} [{Guild.Tag}]" : "Guilds";
         public string MembersHeader => InGuild ? $"Members {Guild.Members.Count}/{GuildService.MaxGuildMembers}" : "";
 
@@ -51,6 +53,24 @@ namespace SkyIslands.UI
         public void Join(GuildListing g) => Run(() => _guilds.JoinAsync(g.Id));
         public void Create(string name, string tag) => Run(() => _guilds.CreateAsync(name, tag, ""));
         public void Kick(GuildMember m) => Run(() => _guilds.KickAsync(m.UserId));
+        public void JoinByCode(string code) => Run(() => _guilds.JoinByCodeAsync(code));
+        public void ToggleOpen() => Run(() => _guilds.UpdateSettingsAsync(!Guild.IsOpen, Guild.Description));
+        public void RotateCode() => Run(() => _guilds.RotateInviteCodeAsync());
+
+        public bool CanReport(GuildMember m) => m.UserId != _myUserId;
+        public bool CanReport(GuildMessage m) => !m.IsSystem && m.UserId != _myUserId;
+
+        public void ReportName(GuildMember m) => Run(async () =>
+        {
+            await _guilds.ReportAsync(m.UserId, "offensive_name");
+            ShowToast("Thanks. A moderator will review it.");
+        });
+
+        public void ReportMessage(GuildMessage m) => Run(async () =>
+        {
+            await _guilds.ReportAsync(m.UserId, "harassment", "", m.Id);
+            ShowToast("Thanks. A moderator will review it.");
+        });
 
         public void Rename(string name) => Run(async () =>
         {

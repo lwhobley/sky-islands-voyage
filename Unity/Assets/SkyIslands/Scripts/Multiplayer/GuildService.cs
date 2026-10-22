@@ -36,6 +36,8 @@ namespace SkyIslands.Multiplayer
         [JsonProperty("tag")] public string Tag;
         [JsonProperty("description")] public string Description;
         [JsonProperty("my_role")] public string MyRole;
+        [JsonProperty("is_open")] public bool IsOpen;
+        [JsonProperty("invite_code")] public string InviteCode;  // only sent to leaders and officers
         [JsonProperty("members")] public List<GuildMember> Members = new List<GuildMember>();
         [JsonProperty("messages")] public List<GuildMessage> Messages = new List<GuildMessage>();
     }
@@ -90,6 +92,24 @@ namespace SkyIslands.Multiplayer
 
         public async Task KickAsync(string userId) =>
             Apply(await _client.RpcAsync<GuildInfo>("kick_guild_member", new { p_user_id = userId }));
+
+        /// <summary>Joins an open or closed guild with the code its leader or officers shared.</summary>
+        public async Task JoinByCodeAsync(string code) =>
+            Apply(await _client.RpcAsync<GuildInfo>("join_guild_by_code", new { p_code = code }));
+
+        public async Task UpdateSettingsAsync(bool isOpen, string description) =>
+            Apply(await _client.RpcAsync<GuildInfo>("update_guild_settings", new { p_is_open = isOpen, p_description = description }));
+
+        public async Task RotateInviteCodeAsync() =>
+            Apply(await _client.RpcAsync<GuildInfo>("rotate_guild_invite_code"));
+
+        /// <summary>
+        /// Reasons: offensive_name, harassment, spam, cheating, other. Pass the chat message id
+        /// to attach it as evidence (it must be the reported player's message in your guild).
+        /// </summary>
+        public Task ReportAsync(string userId, string reason, string details = "", long? messageId = null) =>
+            _client.RpcAsync<object>("report_player",
+                new { p_user_id = userId, p_reason = reason, p_details = details, p_message_id = messageId });
 
         public async Task SetRoleAsync(string userId, string role) =>
             Apply(await _client.RpcAsync<GuildInfo>("set_guild_role", new { p_user_id = userId, p_role = role }));

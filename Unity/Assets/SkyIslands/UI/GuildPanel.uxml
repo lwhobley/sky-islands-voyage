@@ -16,6 +16,10 @@
                 <ui:Button name="search-button" class="btn btn--small" text="Search" />
             </ui:VisualElement>
             <ui:ScrollView name="listings" class="panel__list" />
+            <ui:VisualElement class="composer">
+                <ui:TextField name="invite-code" label="Code" class="text-field" max-length="8" />
+                <ui:Button name="join-code" class="btn btn--small" text="Join" />
+            </ui:VisualElement>
             <ui:Label class="panel__section" text="Found your own" />
             <ui:VisualElement class="composer">
                 <ui:TextField name="new-name" label="Name" class="text-field" max-length="24" />
@@ -27,12 +31,18 @@
         <!-- Shown while the player is in a guild -->
         <ui:VisualElement name="home" class="hidden" style="flex-grow: 1;">
             <ui:Label name="description" class="panel__subtitle" text="" />
+            <ui:VisualElement name="manage" class="composer hidden">
+                <ui:Label name="invite-code-label" class="row__detail" text="" style="flex-grow: 1;" />
+                <ui:Button name="rotate-code" class="btn btn--secondary btn--small" text="New code" />
+                <ui:Button name="toggle-open" class="btn btn--secondary btn--small" text="" />
+            </ui:VisualElement>
             <ui:Label name="members-header" class="panel__section" text="Members" />
             <ui:ScrollView name="members" style="max-height: 420px;" />
             <ui:ScrollView name="chat" class="chat" />
             <ui:VisualElement class="composer">
                 <ui:TextField name="message" class="text-field" max-length="500" />
                 <ui:Button name="send" class="btn btn--small" text="Send" />
+                <ui:Button name="report-message" class="btn btn--danger btn--small hidden" text="Report" />
             </ui:VisualElement>
             <ui:Button name="leave" class="btn btn--secondary btn--small" text="Leave guild" />
         </ui:VisualElement>
