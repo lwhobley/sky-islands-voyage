@@ -1342,6 +1342,130 @@ language sql stable security definer set search_path = '' as $$
 $$;
 
 -- -----------------------------------------------------------------------------
+-- Live-ops: card seasons and store catalog (service role only)
+-- -----------------------------------------------------------------------------
+
+-- Creates a whole card season atomically:
+--   {"name": "...", "starts_at": "<iso>", "ends_at": "<iso>",
+--    "sets": [{"name": "...", "reward_rolls": 25, "reward_crystal_rolls": 40,
+--              "cards": [{"name": "...", "rarity": 1..5, "drop_weight": 1..1000}, ...]}, ...]}
+-- Seasons are create-only once live (players' albums reference card ids), may not overlap,
+-- and may be deleted only before they start.
+create function public.admin_create_season(p_actor text, p_season jsonb) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_start timestamptz;
+  v_end timestamptz;
+  v_name text := btrim(coalesce(p_season ->> 'name', ''));
+  v_season smallint;
+  v_set jsonb;
+  v_card jsonb;
+  v_set_id int;
+  v_sets int := 0;
+  v_cards int := 0;
+begin
+  if coalesce(btrim(p_actor), '') = '' then raise exception 'actor_and_reason_required' using errcode = '22023'; end if;
+  begin
+    v_start := (p_season ->> 'starts_at')::timestamptz;
+    v_end := (p_season ->> 'ends_at')::timestamptz;
+  exception when others then
+    raise exception 'invalid_season' using errcode = '22023';
+  end;
+  if char_length(v_name) not between 1 and 60 or v_start is null or v_end is null or v_end <= v_start
+     or jsonb_typeof(p_season -> 'sets') is distinct from 'array'
+     or jsonb_array_length(p_season -> 'sets') not between 1 and 20 then
+    raise exception 'invalid_season' using errcode = '22023';
+  end if;
+  if exists (select 1 from public.card_seasons where starts_at < v_end and ends_at > v_start) then
+    raise exception 'season_overlaps';
+  end if;
+
+  insert into public.card_seasons (name, starts_at, ends_at) values (v_name, v_start, v_end)
+  returning id into v_season;
+
+  for v_set in select value from jsonb_array_elements(p_season -> 'sets') loop
+    if char_length(btrim(coalesce(v_set ->> 'name', ''))) not between 1 and 60
+       or (v_set ->> 'reward_rolls')::int not between 0 and 10000
+       or (v_set ->> 'reward_crystal_rolls')::int not between 0 and 100000
+       or jsonb_typeof(v_set -> 'cards') is distinct from 'array'
+       or jsonb_array_length(v_set -> 'cards') not between 1 and 50 then
+      raise exception 'invalid_season' using errcode = '22023';
+    end if;
+    insert into public.card_sets (season_id, name, reward_rolls, reward_crystal_rolls)
+    values (v_season, btrim(v_set ->> 'name'), (v_set ->> 'reward_rolls')::int, (v_set ->> 'reward_crystal_rolls')::int)
+    returning id into v_set_id;
+    v_sets := v_sets + 1;
+    for v_card in select value from jsonb_array_elements(v_set -> 'cards') loop
+      if char_length(btrim(coalesce(v_card ->> 'name', ''))) not between 1 and 60
+         or (v_card ->> 'rarity')::int not between 1 and 5
+         or (v_card ->> 'drop_weight')::int not between 1 and 1000 then
+        raise exception 'invalid_season' using errcode = '22023';
+      end if;
+      insert into public.card_definitions (set_id, name, rarity, drop_weight)
+      values (v_set_id, btrim(v_card ->> 'name'), (v_card ->> 'rarity')::int, (v_card ->> 'drop_weight')::int);
+      v_cards := v_cards + 1;
+    end loop;
+  end loop;
+
+  insert into public.admin_actions (actor, action, details)
+  values (p_actor, 'create_season', jsonb_build_object('season_id', v_season, 'name', v_name, 'sets', v_sets, 'cards', v_cards));
+  return jsonb_build_object('season_id', v_season, 'sets', v_sets, 'cards', v_cards);
+exception
+  when invalid_text_representation or numeric_value_out_of_range or datetime_field_overflow or invalid_datetime_format then
+    raise exception 'invalid_season' using errcode = '22023';
+end $$;
+
+create function public.admin_delete_season(p_actor text, p_season_id smallint) returns void
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_start timestamptz;
+begin
+  if coalesce(btrim(p_actor), '') = '' then raise exception 'actor_and_reason_required' using errcode = '22023'; end if;
+  select starts_at into v_start from public.card_seasons where id = p_season_id for update;
+  if not found then raise exception 'season_not_found'; end if;
+  if v_start <= now() then raise exception 'season_already_started'; end if;
+  delete from public.card_seasons where id = p_season_id;
+  insert into public.admin_actions (actor, action, details)
+  values (p_actor, 'delete_season', jsonb_build_object('season_id', p_season_id));
+end $$;
+
+create function public.admin_list_seasons() returns jsonb
+language sql stable security definer set search_path = '' as $$
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'id', s.id, 'name', s.name, 'starts_at_ms', game.epoch_ms(s.starts_at), 'ends_at_ms', game.epoch_ms(s.ends_at),
+           'state', case when now() < s.starts_at then 'upcoming' when now() < s.ends_at then 'live' else 'ended' end,
+           'sets', (select count(*) from public.card_sets c where c.season_id = s.id),
+           'cards', (select count(*) from public.card_definitions d join public.card_sets c on c.id = d.set_id where c.season_id = s.id))
+         order by s.starts_at desc), '[]'::jsonb)
+    from public.card_seasons s
+$$;
+
+-- Adds or updates a store product (ids must match App Store Connect / Play Console).
+-- Deactivate (active = false) instead of deleting: purchases reference the product.
+create function public.admin_set_product(p_actor text, p_product_id text, p_rolls int, p_card_packs int, p_active boolean)
+returns jsonb
+language plpgsql security definer set search_path = '' as $$
+begin
+  if coalesce(btrim(p_actor), '') = '' then raise exception 'actor_and_reason_required' using errcode = '22023'; end if;
+  if p_product_id !~ '^[A-Za-z0-9._-]{3,100}$' or p_rolls not between 0 and 1000000
+     or p_card_packs not between 0 and 10000 or p_active is null then
+    raise exception 'invalid_product' using errcode = '22023';
+  end if;
+  insert into public.store_products (product_id, rolls, card_packs, active)
+  values (p_product_id, p_rolls, p_card_packs, p_active)
+  on conflict (product_id) do update set rolls = excluded.rolls, card_packs = excluded.card_packs, active = excluded.active;
+  insert into public.admin_actions (actor, action, details)
+  values (p_actor, 'set_product', jsonb_build_object('product_id', p_product_id, 'rolls', p_rolls,
+                                                     'card_packs', p_card_packs, 'active', p_active));
+  return (select to_jsonb(sp) from public.store_products sp where sp.product_id = p_product_id);
+end $$;
+
+create function public.admin_list_products() returns jsonb
+language sql stable security definer set search_path = '' as $$
+  select coalesce(jsonb_agg(to_jsonb(sp) order by sp.product_id), '[]'::jsonb) from public.store_products sp
+$$;
+
+-- -----------------------------------------------------------------------------
 -- Player reports
 -- -----------------------------------------------------------------------------
 
@@ -1522,7 +1646,9 @@ revoke execute on function
   public.admin_grant(text, uuid, int, int, numeric, text), public.admin_multiplier_anomalies(int, float8),
   public.join_guild_by_code(text), public.update_guild_settings(boolean, text), public.rotate_guild_invite_code(),
   public.report_player(uuid, text, text, bigint), public.admin_list_reports(text, int),
-  public.admin_resolve_report(text, bigint, text, text, boolean, boolean)
+  public.admin_resolve_report(text, bigint, text, text, boolean, boolean),
+  public.admin_create_season(text, jsonb), public.admin_delete_season(text, smallint), public.admin_list_seasons(),
+  public.admin_set_product(text, text, int, int, boolean), public.admin_list_products()
   from public, anon, authenticated;
 grant execute on function
   public.get_player_state(), public.sync_rolls(jsonb), public.upgrade_structure(int),
@@ -1540,7 +1666,9 @@ grant execute on function
   public.grant_purchase(uuid, text, text, text), public.claim_push_batch(int),
   public.complete_push_batch(bigint[], text[]),
   public.admin_grant(text, uuid, int, int, numeric, text), public.admin_multiplier_anomalies(int, float8),
-  public.admin_list_reports(text, int), public.admin_resolve_report(text, bigint, text, text, boolean, boolean)
+  public.admin_list_reports(text, int), public.admin_resolve_report(text, bigint, text, text, boolean, boolean),
+  public.admin_create_season(text, jsonb), public.admin_delete_season(text, smallint), public.admin_list_seasons(),
+  public.admin_set_product(text, text, int, int, boolean), public.admin_list_products()
   to service_role;
 
 -- -----------------------------------------------------------------------------

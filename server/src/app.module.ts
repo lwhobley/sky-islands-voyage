@@ -1,4 +1,5 @@
 import { Controller, Get, Module } from '@nestjs/common';
+import { AdminCatalogController } from './admin/admin-catalog.controller';
 import { AdminController, AdminReportsController } from './admin/admin.controller';
 import { AdminGuard } from './admin/admin.guard';
 import { APP_CONFIG, AppConfig, loadConfig } from './config';
@@ -20,7 +21,7 @@ export class HealthController {
 }
 
 @Module({
-  controllers: [HealthController, IapController, AdminController, AdminReportsController],
+  controllers: [HealthController, IapController, AdminController, AdminReportsController, AdminCatalogController],
   providers: [
     { provide: APP_CONFIG, useFactory: () => loadConfig() },
     SupabaseService,
