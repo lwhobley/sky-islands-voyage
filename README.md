@@ -12,7 +12,8 @@ supabase/
 server/             NestJS service: store receipt verification, push delivery, live-ops admin
   src/iap/          Apple App Store Server API + Google Play verification -> grant_purchase
   src/push/         drains notification_outbox into Firebase Cloud Messaging
-  src/admin/        anomaly report + compensation grants (X-Admin-Key)
+  src/admin/        anomalies, grants, report queue, card seasons, store catalog (X-Admin-Key)
+  Dockerfile        multi-stage, non-root, health-checked image
 Unity/Assets/SkyIslands/
   Scripts/Core/          GameEconomyManager (EconomyRules, regen, sync), DiceRollEngine, SecureSave
   Scripts/Progression/   IslandProgressionController (state machine), IslandSceneView, BiomeDatabase
@@ -109,6 +110,14 @@ header, and the actor is written to `admin_actions` with every change. It has tw
 - `GET /admin/anomalies` returns the anti-cheat report.
 - `POST /admin/grants` gives compensation. It's bounded to 100,000 rolls and 1,000 packs
   per grant, and a reason is required.
+- `GET /admin/seasons`, `POST /admin/seasons`, `DELETE /admin/seasons/:id` manage card
+  seasons without hand-written SQL.
+  - A season is created whole (sets and cards), in one transaction.
+  - Seasons can't overlap, and can't be edited once created, because players' albums
+    reference their cards.
+  - They can be deleted only before they start.
+- `GET /admin/products`, `PUT /admin/products/:productId` manage the store catalog. Use
+  `active: false` instead of deleting a product, because purchases reference it.
 - `GET /admin/reports?status=open` lists the report queue, oldest first.
 - `POST /admin/reports/:id/resolve` closes a report, with optional `resetName` and
   `deleteMessage`.
@@ -145,6 +154,14 @@ header, and the actor is written to `admin_actions` with every change. It has tw
       Then start the server with `npm start`.
    3. For Apple, download Apple's root certificates (e.g. `AppleRootCA-G3.cer`) into
       `APPLE_ROOT_CERTS_DIR`.
+   4. Or run it as a container (secrets are mounted, never baked into the image):
+      ```bash
+      docker build -t sky-islands-server server/
+      ```
+      ```bash
+      docker run --env-file server/.env -v /path/to/secrets:/secrets:ro -p 3000:3000 sky-islands-server
+      ```
+      Point the `*_PATH` / `*_FILE` variables at `/secrets/...`.
 3. **Unity 6 (URP):** copy `Unity/Assets/SkyIslands` into your project's `Assets/` and add
    the package `com.unity.nuget.newtonsoft-json`. Set Api Compatibility Level to
    .NET Standard 2.1.
@@ -187,9 +204,11 @@ header, and the actor is written to `admin_actions` with every change. It has tw
   - the SQL suites;
   - a check that `GoldenVectors.cs` matches the current SQL;
   - the server's typecheck, tests and build;
-  - the Unity compile and EditMode tests.
+  - the Unity compile and EditMode tests;
+  - the server's Docker image: it builds, boots, answers `/health`, keeps the admin API
+    locked without the key, and doesn't run as root.
 - **SQL:** `schema.sql` was run against PostgreSQL 18 with a stub of Supabase's `auth`
-  schema and roles. Five suites pass (`supabase/tests/`). They cover:
+  schema and roles. Six suites pass (`supabase/tests/`). They cover:
   - RLS isolation, column grants, anon lockout, and service-role-only RPCs;
   - idempotent and rejected roll syncs, regen and clock clamping;
   - island completion, shielded and unshielded raids, NPC fallback and the fair-match
@@ -203,7 +222,9 @@ header, and the actor is written to `admin_actions` with every change. It has tw
   - admin grants and their audit trail;
   - an end-to-end cheater simulation through `sync_rolls`;
   - invite codes (including privacy and the member cap), reports, evidence rules, and admin
-    resolution.
+    resolution;
+  - card seasons (validation, overlap, atomic rollback, activation, delete-before-start) and
+    the store catalog.
 - **Client/server parity:** an independent reference implementation matched all 20,000
   roll outcomes and all 4,000 level × slot × tier prices against the SQL exactly.
 - **Golden vectors:** `GoldenVectors.cs` is generated from the live SQL functions. It holds
@@ -211,7 +232,7 @@ header, and the actor is written to `admin_actions` with every change. It has tw
   replay that crosses the regen cap and runs out of budget. A Python port of the C# roll
   loop reproduces that replay exactly, so the Unity tests should pass as soon as the code
   compiles.
-- **Server:** it type-checks and builds. 30 Jest tests pass, including end-to-end HTTP
+- **Server:** it type-checks and builds. 37 Jest tests pass, including end-to-end HTTP
   tests through the real `AppModule` (player and admin guards, validation, error mapping). The calls
   to Apple, Google, FCM and Supabase are mocked; they still need a sandbox run with real
   credentials.
@@ -231,6 +252,9 @@ header, and the actor is written to `admin_actions` with every change. It has tw
 - Art: structure prefabs, VFX and audio. Also the Unity IAP / Firebase SDK glue described
   above.
 - An admin UI: the `/admin` API is curl-able today.
+- **Docker image not yet built by me:** Docker wasn't running on the build machine. I checked
+  the same steps by hand (production-only install, compiled output boots, routes respond);
+  the CI job does the real image build.
 - **Remaining anti-cheat gap:** the detector can't flag a cheater who peeks but only rarely
   acts on it. Each such roll gains little, but if it matters, move high multipliers to
   online-only rolls.
